@@ -16,12 +16,12 @@ class TestHamiltonianClass(unittest.TestCase):
         self.td  = ident.copy()
 
         self.g_decimated = utils.decimate(self.g, self.t00, self.t, self.td)
-        # print( np.round( g_decimated, 3 ) )    
+        # print( np.round( self.g_decimated, 3 ) )    
     
     
     def test_initialize(self):
-        self.assertEqual( np.round( self.g_decimated, 3 )[0].real, -1.766, "wrong" )
-        self.assertEqual( np.round( self.g_decimated, 3 )[0].imag, -2.02j, "wrong" )
+        self.assertEqual( np.round( self.g_decimated, 3 )[0, 0].real, -3.531, "wrong" )
+        self.assertEqual( np.round( self.g_decimated, 3 )[0, 0].imag, -3.54, "wrong" )
         
 
 #
