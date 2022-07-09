@@ -1,12 +1,13 @@
-#%%
 import numpy as np
+from numpy.linalg import solve
 
-# %%
+@profile
 def renormalize(Z, Q):
     size = Q.shape[0]
     ident = np.eye(size, dtype=complex)
-    inversa = np.linalg.inv( ident - Z )
-    return np.matmul(inversa, Q)
+    temp = ident - Z
+    renormalized = solve(temp, Q)
+    return renormalized
 #
 
 def decimate(greenFunction, t00, t, td):
@@ -29,4 +30,3 @@ def decimate(greenFunction, t00, t, td):
     #
     return GR
 #
-#%%

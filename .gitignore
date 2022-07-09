@@ -132,4 +132,4 @@ dmypy.json
 # Other additional files to ignore
 .python-version
 .DS_Store
-src/__pycache__/
+*.lprof
