@@ -62,6 +62,7 @@ Here is the piece of code, after improving performance. Notice that now I use `s
 ```python
 import numpy as np
 from numpy.linalg import solve
+from numpy import matmul
 
 @profile
 def renormalize(Z, Q):
@@ -82,6 +83,41 @@ t00     = ident.copy()
 t       = ident.copy()
 td      = ident.copy()
 r_solve = renormalize(g, g) # just a toy example
+```
 
 
+
+
+## `decimate()` profile
+
+Still, `renormalize()` takes most of the time in the decimation process, about 10X of any other operation.
+
+```
+$ kernprof -l utils.py
+Wrote profile results to utils.py.lprof
+$ python -m line_profiler utils.py.lprof
+Timer unit: 1e-06 s
+
+Total time: 0.000633 s
+File: utils.py
+Function: decimate at line 14
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    14                                           @profile
+    15                                           def decimate(greenFunction, t00, t, td):
+    18         1         59.0     59.0      9.3      temp = matmul(greenFunction, t00)
+    20         1        289.0    289.0     45.7      GR  = renormalize(temp, greenFunction)
+    21         1          2.0      2.0      0.3      TR  = t
+    22         1          1.0      1.0      0.2      TRD = td
+    23
+    24         1          1.0      1.0      0.2      n = 1 #15
+    25         2          4.0      2.0      0.6      for i in range(n):
+    26         1         23.0     23.0      3.6          Z   = matmul( GR, TR  )               # Z(N-1)   = GR(N-1)*TR(N-1)
+    27         1         17.0     17.0      2.7          ZzD = matmul( GR, TRD )               # ZzD(N-1) = GR(N-1)*TRD(N-1)
+    28         1         28.0     28.0      4.4          TR  = matmul( matmul(TR, GR), TR )    # TR(N)    = TR(N-1)*GR(N-1)*TR(N-1)
+    29         1         18.0     18.0      2.8          TRD = matmul( matmul(TRD, GR), TRD )  # TRD(N)   = TRD(N-1)*GR(N-1)*TRD(N-1)
+    30         1        190.0    190.0     30.0          GR  = renormalize( matmul(Z, ZzD) + matmul(ZzD,Z), GR )
+    31                                               #
+    32         1          1.0      1.0      0.2      return GR
 ```
