@@ -1,6 +1,6 @@
 # Performance history
 
-`Line_profiler` can analyze the time spent at each line. Information can be found [here](https://github.com/rkern/line_profiler#kernprof) and [here](https://towardsdatascience.com/how-to-assess-your-code-performance-in-python-346a17880c9f). It would required to add the decorator `@profile` before the code definition. 
+`Line_profiler` can analyze the time spent at each line. Information can be found [here](https://github.com/rkern/line_profiler#kernprof) and [here](https://towardsdatascience.com/how-to-assess-your-code-performance-in-python-346a17880c9f). It would be required to add the decorator `@profile` before the code definition. 
 
 To install, type the following:
 
