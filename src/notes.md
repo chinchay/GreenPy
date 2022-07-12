@@ -145,7 +145,7 @@ Data were collected by averaging the time taken at several loops containing the 
 
 Even with the use of the NUMPY (ultimately based on LAPACK or BLAS) for Python, the code is 10X slower than its FORTRAN counterpart (see Fig.1)
 
-![](python_vs_fortran.png)
+<img src="python_vs_fortran.png" alt="drawing" width="450"/>
 
 __Figure 1__. Time vs matrix size employed in the `renormalize()` function, using `numpy.linalg.solve()` for Python and `dgesv()` from LAPACK for FORTRAN. Performed on a 1.6 GHz Dual-Core Intel Core i5 processor, 8 GB 2133 MHz LPDDR3
 
