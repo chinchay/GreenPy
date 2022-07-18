@@ -1,26 +1,28 @@
 import unittest
 import numpy as np
-from src import utils
+from src.green import Green
 
 class TestHamiltonianClass(unittest.TestCase):
     def setUp(self) -> None:
-        energy   = -1.0
-        delta    = 0.01
-        invE     = 1 / complex(energy, delta)
-        ident    =  np.eye(2, dtype=complex)
-        self.g   = invE * ident.copy()
-        self.t00 = ident.copy()
-        self.t   = ident.copy()
-        self.td  = ident.copy()
-
-        self.g_decimated = utils.decimate(self.g, self.t00, self.t, self.td)
-        # print( np.round( self.g_decimated, 3 ) )    
-    
+        eye1 = np.eye(1, dtype=complex)
+        t00  = np.asarray( [0] )
+        t    = eye1
+        td   = np.transpose(t)
+        #   
+        onsite_list = np.zeros(1)
+        energy = -1.0
+        eta    = 0.001
+        g      = Green(t00, t, td, energy=energy, onsite_list=onsite_list, eta=eta)
+        self.decimated = g.decimate()
+    #
     
     def test_initialize(self):
-        self.assertEqual( np.round( self.g_decimated, 3 )[0, 0].real, -3.531, "wrong" )
-        self.assertEqual( np.round( self.g_decimated, 3 )[0, 0].imag, -3.54, "wrong" )
-        
+        # self.assertEqual( np.allclose( self.g_decimated.real, self.a_real), True, "wrong" )
+        # self.assertEqual( np.allclose( self.g_decimated.imag, self.a_imag), True, "wrong" )
+        self.assertAlmostEqual( self.decimated[0][0].real, -0.0001924499400464738, None, "wrong", delta=0.0001)
+        self.assertAlmostEqual( self.decimated[0][0].imag, -0.5773500767396716, None, "wrong", delta=0.0001)
+
+        # get_density_twoLines()
 
 #
     
