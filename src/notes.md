@@ -141,6 +141,13 @@ The fortran code was compiled as
 ```ShellSession
 $ gfortran algebra.f90 -llapack
 ```
+
+Although installing LAPACK is not necessary at all since MacOS provides its own LAPACK and BLAS versions through its [Accelerate framework](https://developer.apple.com/documentation/accelerate):
+
+```ShellSession
+$ gfortran algebra.f90 -framework Accelerate
+```
+
 Data were collected by averaging the time taken at several loops containing the `renormalize()` function for both, Python and FORTRAN.
 
 Even with the use of the NUMPY (ultimately based on LAPACK or BLAS) for Python, the code is 10X slower than its FORTRAN counterpart (see Fig.1)
