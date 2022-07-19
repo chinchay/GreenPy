@@ -1,9 +1,12 @@
+from tkinter.tix import Tree
 import numpy as np
 from numpy.linalg import solve
 from numpy import matmul
 
 eye2   = np.eye(2, dtype=complex)
 zeros2 = np.zeros(2, dtype=complex)
+pi     = 3.14159
+
 
 class Green():
     """Class to handle Green function, at a given energy E for a periodic device
@@ -62,14 +65,10 @@ class Green():
 
     # @profile
     def decimate(self):
-        """Applies the Dyson equation iteratively
-
-        Args:
-            - None
-
-        Returns:
-            - GR, numpy array, the renormalized Green function throug the use of the `renormalize()` function
-        """ 
+        """
+        Applies the Dyson equation iteratively on the Green function. Uses the `renormalize()` function.
+        It updates the Green function
+        """
         # careful here, between .dot and matmul
         # https://stackoverflow.com/questions/34142485/difference-between-numpy-dot-and-python-3-5-matrix-multiplication#:~:text=matmul%20differs%20from%20dot%20in,if%20the%20matrices%20were%20elements.
         temp = matmul( self.greenFunc, self.t00 )
@@ -86,12 +85,40 @@ class Green():
             TRD = matmul( matmul(TRD, GR), TRD )  # TRD(N)   = TRD(N-1)*GR(N-1)*TRD(N-1)
             GR  = self.renormalize( matmul(Z, ZzD) + matmul(ZzD,Z), GR )
         #
-        return GR
+        self.greenFunc = GR.copy()
     #
 
-    def get_density(self):
-        """Calculates the density of states by calculating the trace of the Green function"""
-        return -np.trace( self.decimate().imag ) / (self.size * 3.14159)
+
+
+    def get_density(self, consider_spin=False):
+        """Calculates the density of states by calculating the trace of the Green function
+
+        Args:
+            consider_spin (bool, optional): Consider spin degree of freedom in calculations. Defaults to False.
+
+        Returns:
+            density: Density of states. If consider_spin is True, density_up and density_dw are returned
+        """
+
+        denominator = self.size * pi
+
+        if not consider_spin == None:
+            self.decimate() # Updates the Green function
+            return -np.trace( self.greenFunc.imag ) / denominator
+        else:
+            self.solve_self_consistent() # Updates the Green function
+            n     = self.size
+            nHalf = n / 2
+            density_up, density_dw = 0, 0
+            for i in range(nHalf):
+                density_up -= self.greenFunc[i].imag
+                density_dw -= self.greenFunc[i + nHalf].imag
+            #
+            density_up /= denominator
+            density_dw /= denominator
+            return density_up, density_dw
+        #
+    #
 
     @staticmethod
     def get_density_OneLinearChain(energy):
@@ -179,3 +206,29 @@ class Green():
         # plt.savefig("DOS.pdf", format="pdf", bbox_inches="tight")
         plt.show()
  
+    def get_initial_occupation(self):
+        pass
+    
+    def get_occupation(self):
+        pass
+
+    @staticmethod
+    def check_convergence(n_up, n_dw):
+        pass
+
+    def update(self):
+        # n_up_prev, n_dw_prev = n_up, n_dw
+        # self.energy = 
+        # return energy
+        pass
+
+    def solve_self_consistent(self):
+        n_up_prev, n_dw_prev = self.get_initial_occupation()
+        for i in range(2):
+            n_up, n_dw = self.get_occupation()
+            if self.check_convergence(n_up, n_dw, n_up_prev, n_dw_prev):
+                self.decimate()
+                self.update()
+            #
+        #
+    
