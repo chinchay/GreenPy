@@ -89,8 +89,8 @@ class Green():
         return GR
     #
 
-    def trace(self):
-        """Calculates the trace of the converged Green function to use later for electronic density curve vs energy"""
+    def get_density(self):
+        """Calculates the density of states by calculating the trace of the Green function"""
         return -np.trace( self.decimate().imag ) / (self.size * 3.14159)
 
     @staticmethod
@@ -111,7 +111,7 @@ class Green():
         onsite_list = np.zeros(1)
         eta   = 0.001
         g       = Green(t00, t, td, energy=energy, onsite_list=onsite_list, eta=eta)
-        density = g.trace()
+        density = g.get_density()
         return density
 
     @staticmethod
@@ -144,7 +144,7 @@ class Green():
         onsite_list = np.zeros(4)
         eta   = 0.001
         g       = Green(t00, t, td, energy=energy, onsite_list=onsite_list, eta=eta)
-        density = g.trace()
+        density = g.get_density()
         return density
     
     @staticmethod
