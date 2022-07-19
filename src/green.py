@@ -173,5 +173,9 @@ class Green():
                 color = "b",
                 alpha = 0.2
             )
+        plt.title("Electronic density of states")
+        plt.xlabel("Energy (hopping units)")
+        plt.ylabel("Density of states (a.u.)")
+        # plt.savefig("DOS.pdf", format="pdf", bbox_inches="tight")
         plt.show()
  
