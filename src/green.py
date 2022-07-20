@@ -1,4 +1,3 @@
-from tkinter.tix import Tree
 import numpy as np
 from numpy.linalg import solve
 from numpy import matmul
@@ -36,6 +35,13 @@ class Green():
         self.E         = energy - onsite_list # they must be numpy arrays
         invE           = 1 / ( self.E + complex(0, eta) )
         self.greenFunc = invE * np.eye(self.size, dtype=complex)
+        ones           = np.ones(self.size)
+        self.up_prev   = ones.copy()
+        self.dw_prev   = ones.copy()
+        self.up        = ones.copy()
+        self.dw        = ones.copy()
+        self.Fermi     = 1.0
+        self.Fermi_prev= 1.0
     #
     
     def __repr__(self) -> str:
@@ -206,29 +212,58 @@ class Green():
         # plt.savefig("DOS.pdf", format="pdf", bbox_inches="tight")
         plt.show()
  
-    def get_initial_occupation(self):
-        pass
+    def get_ansatz(self):
+        """Get initial configuration for the occupation at each atom site
+        
+        It updates:
+            self.up_prev (array float): occupations with spin upward
+            self.dw_prev (array float): occupations with spin downward
+        
+        Returns:
+            None
+        """
+        n       = self.size
+        nMinus1 = n - 1
+
+        self.up_prev[0],       self.dw_prev[nMinus1] -= 0.5
+        self.up_prev[nMinus1], self.dw_prev[0]       += 0.5
+    #
     
     def get_occupation(self):
+        # self.up, self.dw = self.integrate()
         pass
 
     @staticmethod
-    def check_convergence(n_up, n_dw):
-        pass
+    def is_under_error(list, list_prev, error):
+        error_list = (list - list_prev) / list_prev # so, they must be numpy arrays
+        return np.all(error_list < error)
 
+    def check_convergence(self):
+        error = 0.1
+        up_under_error = self.is_under_error(self.up, self.up_prev, error)
+        dw_under_error = self.is_under_error(self.dw, self.dw_prev, error)
+        return up_under_error and dw_under_error
+
+    @staticmethod
+    def get_pondered_sum(list, list_prev):
+        alpha = 0.5
+        return (alpha * list) + ((1 - alpha) * list_prev)
+    
     def update(self):
-        # n_up_prev, n_dw_prev = n_up, n_dw
-        # self.energy = 
-        # return energy
-        pass
+        """Update occupation and Fermi energy using a pondered sum from previous results
+        """
+        self.up    = self.get_pondered_sum(self.up, self.up_prev)
+        self.dw    = self.get_pondered_sum(self.dw, self.dw_prev)
+        self.Fermi = self.get_pondered_sum(self.Fermi, self.Fermi_prev)
 
     def solve_self_consistent(self):
-        n_up_prev, n_dw_prev = self.get_initial_occupation()
+
+        self.get_ansatz()
         for i in range(2):
-            n_up, n_dw = self.get_occupation()
-            if self.check_convergence(n_up, n_dw, n_up_prev, n_dw_prev):
+            self.get_occupation()
+            if self.check_convergence():
                 self.decimate()
-                self.update()
+                self.update()    
             #
         #
-    
+    #
