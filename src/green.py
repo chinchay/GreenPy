@@ -13,7 +13,7 @@ class Green():
         - Decimation or "dressing up" of the interacting Green function is calculated through iteratively use of the Dyson equation
     """
 
-    def __init__( self, t00=eye2, t=eye2, td=eye2, energy=-2.0, onsite_list=zeros2, eta=0.01 ):
+    def __init__( self, t00=eye2, t=eye2, td=eye2, energy=-2.0, onsite_list=zeros2, eta=0.01, consider_spin=False ):
         """Initialize the isolated Green function
 
         Args:
