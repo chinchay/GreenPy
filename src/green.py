@@ -27,7 +27,7 @@ class Green():
         self.t00       = t00
         self.t         = t
         self.td        = td
-        self.size      = t00.shape[0]
+        self.size      = len(onsite_list)
         self.eta       = eta
         self.energy    = energy
         self.E         = energy - onsite_list # they must be numpy arrays
