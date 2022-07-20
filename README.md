@@ -25,7 +25,7 @@ for energy in energy_list:
 Green.plot(energy_list, density_list)
 ```
 
-<img src="src/DOS.png" alt="drawing" width="450"/>
+<img src="DOS.png" alt="drawing" width="450"/>
 
 
 Further code development is under work. The `src` folder contains a performance comparison between Numpy and LAPACK functions. Unit test is also available.
