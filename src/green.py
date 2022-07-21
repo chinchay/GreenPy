@@ -3,6 +3,8 @@ import library as lib
 
 eye2   = np.eye(2, dtype=complex)
 zeros2 = np.zeros(2, dtype=complex)
+pi     = 3.14159
+invPi  = 1 / pi
 
 class Green():
     """Class to handle Green function, at a given energy E for a periodic device
@@ -69,10 +71,30 @@ class Green():
         """Provides information about the complex energy selected """
         return f"Green object with energy={round(self.energy, 3)}, eta={round(self.eta, 5)}"
 
-    def get_density(self):
+    def update(self, g):
+        self.greenFunc = g.copy()
+
+    def get_total_density(self):
         """Calculates the density of states by calculating the trace of the Green function"""
         g_decimated = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
-        return -np.trace( g_decimated.imag ) / (self.size * 3.14159)
+        self.update(g_decimated)
+        return -np.trace( g_decimated.imag ) / (self.size * pi)
+
+    def get_density_per_spin(self):
+        g_consistent = self.solve_self_consistent()
+        self.update(g_consistent)
+
+        n_half = self.size / 2
+        dens_up, dens_dw = 0, 0
+        for i in range(n_half):
+            dens_up -= self.greenFunc[i].imag
+            dens_dw -= self.greenFunc[i + n_half].imag
+        #
+        denominator = self.size * pi
+        dens_up /= denominator
+        dens_dw /= denominator
+        return dens_up, dens_dw
+    #
 
     @staticmethod
     def get_density_OneLinearChain(energy):
@@ -92,7 +114,7 @@ class Green():
         onsite_list = np.zeros(1)
         eta   = 0.001
         g       = Green(t00, t, td, energy=energy, onsite_list=onsite_list, eta=eta)
-        density = g.get_density()
+        density = g.get_total_density()
         return density
 
     @staticmethod
@@ -125,7 +147,7 @@ class Green():
         onsite_list = np.zeros(4)
         eta   = 0.001
         g       = Green(t00, t, td, energy=energy, onsite_list=onsite_list, eta=eta)
-        density = g.get_density()
+        density = g.get_total_density()
         return density
     
     @staticmethod
