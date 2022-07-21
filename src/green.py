@@ -1,6 +1,5 @@
 import numpy as np
-from numpy.linalg import solve
-from numpy import matmul
+import library as lib
 
 eye2   = np.eye(2, dtype=complex)
 zeros2 = np.zeros(2, dtype=complex)
@@ -69,60 +68,11 @@ class Green():
     def __repr__(self) -> str:
         """Provides information about the complex energy selected """
         return f"Green object with energy={round(self.energy, 3)}, eta={round(self.eta, 5)}"
-        
-    # @profile
-    def renormalize(self, Z, Q):
-        """Calculates the "dressed-up" Green function 
-        
-        Specifically:
-        `GreenFunction_new = Inverse( Identity - Z ) * Q`
-        
-        Args:
-            - Z : numpy array, interaction information
-            - Q : numpy array, Green function
-
-        Returns:
-            - renormalized: numpy array, the new Green function of the dressed-up system
-        """
-        size = Q.shape[0]
-        ident = np.eye(size, dtype=complex)
-        temp = ident - Z
-        renormalized = solve(temp, Q)
-        return renormalized
-    #
-
-    # @profile
-    def decimate(self):
-        """Applies the Dyson equation iteratively
-
-        Args:
-            - None
-
-        Returns:
-            - GR, numpy array, the renormalized Green function throug the use of the `renormalize()` function
-        """ 
-        # careful here, between .dot and matmul
-        # https://stackoverflow.com/questions/34142485/difference-between-numpy-dot-and-python-3-5-matrix-multiplication#:~:text=matmul%20differs%20from%20dot%20in,if%20the%20matrices%20were%20elements.
-        temp = matmul( self.greenFunc, self.t00 )
-        
-        GR  = self.renormalize(temp, self.greenFunc)
-        TR  = self.t
-        TRD = self.td
-        
-        iterations = 15
-        for _ in range(iterations):
-            Z   = matmul( GR, TR  )               # Z(N-1)   = GR(N-1)*TR(N-1)
-            ZzD = matmul( GR, TRD )               # ZzD(N-1) = GR(N-1)*TRD(N-1)
-            TR  = matmul( matmul(TR, GR), TR )    # TR(N)    = TR(N-1)*GR(N-1)*TR(N-1)
-            TRD = matmul( matmul(TRD, GR), TRD )  # TRD(N)   = TRD(N-1)*GR(N-1)*TRD(N-1)
-            GR  = self.renormalize( matmul(Z, ZzD) + matmul(ZzD,Z), GR )
-        #
-        return GR
-    #
 
     def get_density(self):
         """Calculates the density of states by calculating the trace of the Green function"""
-        return -np.trace( self.decimate().imag ) / (self.size * 3.14159)
+        g_decimated = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
+        return -np.trace( g_decimated.imag ) / (self.size * 3.14159)
 
     @staticmethod
     def get_density_OneLinearChain(energy):
