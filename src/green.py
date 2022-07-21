@@ -14,7 +14,7 @@ class Green():
         - Decimation or "dressing up" of the interacting Green function is calculated through iteratively use of the Dyson equation
     """
 
-    def __init__( self, t00=eye2, t=eye2, td=eye2, energy=-2.0, onsite_list=zeros2, eta=0.01, consider_spin=False ):
+    def __init__( self, t00=eye2, t=eye2, td=eye2, energy=-2.0, onsite_list=zeros2, eta=0.01, consider_spin=False, store_errors=False):
         """Initialize the isolated Green function
 
         Args:
@@ -31,7 +31,8 @@ class Green():
         self.size      = len(onsite_list)
         self.eta       = eta
         self.energy    = energy
-        self.E         = energy - onsite_list # they must be numpy arrays
+        self.onsite_list = onsite_list
+        self.E         = energy - self.onsite_list # they must be numpy arrays
         invE           = 1 / ( self.E + complex(0, eta) )
         self.greenFunc = invE * np.eye(self.size, dtype=complex)
 
@@ -46,26 +47,36 @@ class Green():
         self.Fermi_prev= 0.0
 
         if consider_spin:
-            self.U         = 1.0
-            dE_up          = (self.U * self.dw) - 0.5
-            dE_dw          = (self.U * self.up) - 0.5
-            invE_up        = 1 / ( self.E + complex(0, eta) + dE_up )
-            invE_dw        = 1 / ( self.E + complex(0, eta) + dE_dw )
-            g_up           = invE_up * self.eye
-            g_dw           = invE_dw * self.eye
-
-            self.t00       = np.kron( np.eye(2), t00 )
-            self.t         = np.kron( np.eye(2), t   )
-            self.td        = np.kron( np.eye(2), td  )
-
-            matrix_up, matrix_dw = self.eye.copy(), self.eye.copy()
-            matrix_up[1, 1] = 0
-            matrix_dw[0, 0] = 0
-            G_up = np.kron( matrix_up, g_up )
-            G_dw = np.kron( matrix_dw, g_dw )
-            self.greenFunc = G_up + G_dw
+            self.t00       = np.kron( np.eye(2), self.t00 )
+            self.t         = np.kron( np.eye(2), self.t   )
+            self.td        = np.kron( np.eye(2), self.td  )
+            self.init_greenFunc_spin()
+            self.store_errors = store_errors
+            if self.store_errors:
+                self.hist_err  = []
+            #
         #
     #
+
+    def init_greenFunc_spin(self):
+        self.U         = 0.0
+        dE_up          = (self.U * self.dw_prev) - 0.5
+        dE_dw          = (self.U * self.up_prev) - 0.5
+        invE_up        = 1 / ( self.E + complex(0, self.eta) + dE_up )
+        invE_dw        = 1 / ( self.E + complex(0, self.eta) + dE_dw )
+        g_up           = invE_up * self.eye
+        g_dw           = invE_dw * self.eye
+
+        matrix_up, matrix_dw = np.eye(2), np.eye(2)
+        matrix_up[1, 1] = 0
+        matrix_dw[0, 0] = 0
+        G_up = np.kron( matrix_up, g_up )
+        G_dw = np.kron( matrix_dw, g_dw )
+        self.greenFunc = G_up + G_dw
+    #
+
+
+
     
     def __repr__(self) -> str:
         """Provides information about the complex energy selected """
@@ -84,11 +95,11 @@ class Green():
         g_consistent = self.solve_self_consistent()
         self.update(g_consistent)
 
-        n_half = self.size / 2
+        n = self.size
         dens_up, dens_dw = 0, 0
-        for i in range(n_half):
-            dens_up -= self.greenFunc[i].imag
-            dens_dw -= self.greenFunc[i + n_half].imag
+        for i in range(n):
+            dens_up -= self.greenFunc[i, i].imag
+            dens_dw -= self.greenFunc[i + n, i + n].imag
         #
         denominator = self.size * pi
         dens_up /= denominator
@@ -181,4 +192,115 @@ class Green():
         plt.ylabel("Density of states (a.u.)")
         # plt.savefig("DOS.pdf", format="pdf", bbox_inches="tight")
         plt.show()
- 
+    #
+
+    def get_ansatz(self):
+        """Get initial configuration for the occupation at each atom site
+        
+        It updates:
+            self.up_prev (array float): occupations with spin upward
+            self.dw_prev (array float): occupations with spin downward
+        
+        Returns:
+            None
+        """
+        n       = self.size
+        nMinus1 = n - 1
+
+        self.up_prev[0]       -= 0.5
+        self.up_prev[nMinus1] += 0.5
+        
+        self.dw_prev[0]       += 0.5
+        self.dw_prev[nMinus1] -= 0.5
+    #
+
+    def get_occupation(self):
+        eps = 0.1
+        ef  = self.Fermi
+        dx = 0.2
+        x_list = np.arange(0, 1.0, dx)
+        len_x = len(x_list)
+        nAtoms = self.size
+
+        n2 = nAtoms * 2
+        g2 = np.zeros( (len_x, n2), dtype=complex )
+        E_ = self.Fermi - self.onsite_list  # they must be numpy arrays
+
+        prod_list = np.ones(len_x)
+        for (i, x) in enumerate(x_list):
+            prod_list[i] = 1 / (1 - pow(x, 2))
+        #
+        
+        dE_up          = (self.U * self.dw_prev) - 0.5
+        dE_dw          = (self.U * self.up_prev) - 0.5
+        for (i, x) in enumerate(x_list):
+            invE_up  = 1 / (  E_ + complex(0, x) + dE_up )
+            invE_dw  = 1 / (  E_ + complex(0, x) + dE_dw )
+            g_up     = invE_up * self.eye
+            g_dw     = invE_dw * self.eye
+            
+            matrix_up, matrix_dw = np.eye(2), np.eye(2)
+            matrix_up[1, 1] = 0
+            matrix_dw[0, 0] = 0
+            G_up = np.kron( matrix_up, g_up )
+            G_dw = np.kron( matrix_dw, g_dw )
+            
+            g_   = G_up + G_dw
+            
+            g_   = lib.decimate(g_, self.t00, self.t, self.td)
+            gii  = g_.diagonal()
+            g2[i, :] = gii[:] * prod_list[i]
+        #
+        
+        for j in range(nAtoms):
+            sum_up    = np.trapz( y=g2[:, j].real, x=None, dx=dx, axis=-1 )
+            sum_dw    = np.trapz( y=g2[:, j + nAtoms].real, x=None, dx=dx, axis=-1 )
+            self.up[j] = 0.5 + ( invPi * sum_up )
+            self.dw[j] = 0.5 + ( invPi * sum_dw )
+        #
+    #
+
+    @staticmethod
+    def is_under_error(list, list_prev, error):
+        error_list = (list - list_prev) / list_prev # so, they must be numpy arrays
+        return np.all(error_list < error), max(error_list)
+
+    def converged(self):
+        error = 0.1
+        up_under_error, max_err_up = self.is_under_error(self.up, self.up_prev, error)
+        dw_under_error, max_err_dw = self.is_under_error(self.dw, self.dw_prev, error)
+        if self.store_errors:
+            self.hist_err.append( abs(max(max_err_up, max_err_dw)) )
+        #
+        return up_under_error and dw_under_error
+
+    @staticmethod
+    def get_pondered_sum(list, list_prev):
+        alpha = 0.5
+        return (alpha * list) + ((1 - alpha) * list_prev)
+
+    def update_spin_info(self):
+        """Update occupation and Fermi energy using a pondered sum from previous results
+        """
+        self.up_prev      = self.get_pondered_sum(self.up, self.up_prev)
+        self.dw_prev      = self.get_pondered_sum(self.dw, self.dw_prev)
+        self.Fermi_prev   = self.get_pondered_sum(self.Fermi, self.Fermi_prev)
+
+    def solve_self_consistent(self):
+        self.get_ansatz()
+        for i in range(5):
+            self.get_occupation() # update self.up, self.dw
+            if self.converged():  # compare self.up, self.dw with self.up_prev and self.dw_prev
+                self.update_spin_info() # update self.up_prev, self.dw_prev
+            #
+        #
+        self.init_greenFunc_spin() # updates self.greenFunc with the new self.up_prev, self.dw_prev
+        g = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
+        # print(np.round(g, 2))
+
+        # if self.store_errors:
+        #     print("g:", len(self.hist_err))
+        # #
+        return g
+    #
+#
