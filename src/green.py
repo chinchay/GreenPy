@@ -33,6 +33,37 @@ class Green():
         self.E         = energy - onsite_list # they must be numpy arrays
         invE           = 1 / ( self.E + complex(0, eta) )
         self.greenFunc = invE * np.eye(self.size, dtype=complex)
+
+        self.consider_spin = consider_spin
+        self.ones      = np.ones(self.size)
+        self.eye       = np.eye(self.size)
+        self.up_prev   = self.ones.copy()
+        self.dw_prev   = self.ones.copy()
+        self.up        = self.ones.copy()
+        self.dw        = self.ones.copy()
+        self.Fermi     = 0.0
+        self.Fermi_prev= 0.0
+
+        if consider_spin:
+            self.U         = 1.0
+            dE_up          = (self.U * self.dw) - 0.5
+            dE_dw          = (self.U * self.up) - 0.5
+            invE_up        = 1 / ( self.E + complex(0, eta) + dE_up )
+            invE_dw        = 1 / ( self.E + complex(0, eta) + dE_dw )
+            g_up           = invE_up * self.eye
+            g_dw           = invE_dw * self.eye
+
+            self.t00       = np.kron( np.eye(2), t00 )
+            self.t         = np.kron( np.eye(2), t   )
+            self.td        = np.kron( np.eye(2), td  )
+
+            matrix_up, matrix_dw = self.eye.copy(), self.eye.copy()
+            matrix_up[1, 1] = 0
+            matrix_dw[0, 0] = 0
+            G_up = np.kron( matrix_up, g_up )
+            G_dw = np.kron( matrix_dw, g_dw )
+            self.greenFunc = G_up + G_dw
+        #
     #
     
     def __repr__(self) -> str:
