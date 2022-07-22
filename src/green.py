@@ -60,8 +60,8 @@ class Green():
 
     def init_greenFunc_spin(self):
         self.U         = 0.0
-        dE_up          = (self.U * self.dw_prev) - 0.5
-        dE_dw          = (self.U * self.up_prev) - 0.5
+        dE_up          = self.U * (self.dw_prev - 0.5)
+        dE_dw          = self.U * (self.up_prev - 0.5)
         invE_up        = 1 / ( self.E + complex(0, self.eta) + dE_up )
         invE_dw        = 1 / ( self.E + complex(0, self.eta) + dE_dw )
         g_up           = invE_up * self.eye
@@ -231,8 +231,8 @@ class Green():
             prod_list[i] = 1 / (1 - pow(x, 2))
         #
         
-        dE_up          = (self.U * self.dw_prev) - 0.5
-        dE_dw          = (self.U * self.up_prev) - 0.5
+        dE_up          = self.U * (self.dw_prev - 0.5)
+        dE_dw          = self.U * (self.up_prev - 0.5)
         for (i, x) in enumerate(x_list):
             invE_up  = 1 / (  E_ + complex(0, x) + dE_up )
             invE_dw  = 1 / (  E_ + complex(0, x) + dE_dw )
