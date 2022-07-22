@@ -218,7 +218,7 @@ class Green():
         eps = 0.1
         ef  = self.Fermi
         dx = 0.2
-        x_list = np.arange(0, 1.0, dx)
+        x_list = np.arange(dx, 1.0, dx) # avoid zero, so avoid dividing by zero in invE = 1 / E_
         len_x = len(x_list)
         nAtoms = self.size
 
