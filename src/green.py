@@ -32,17 +32,17 @@ class Green():
         self.eta       = eta
         self.energy    = energy
         self.onsite_list = onsite_list
-        self.E         = energy - self.onsite_list # they must be numpy arrays
-        invE           = 1 / ( self.E + complex(0, eta) )
-        self.greenFunc = invE * np.eye(self.size, dtype=complex)
+
+        e_minus_onsite = self.get_energy_minus_onsite(self.energy, self.onsite_list)
+        self.greenFunc = lib.get_isolated_Green_(e_minus_onsite, self.eta)
 
         self.consider_spin = consider_spin
         self.ones      = np.ones(self.size)
         self.eye       = np.eye(self.size)
-        self.up_prev   = self.ones.copy()
-        self.dw_prev   = self.ones.copy()
-        self.up        = self.ones.copy()
-        self.dw        = self.ones.copy()
+        self.up_prev   = self.ones.copy() / 2
+        self.dw_prev   = self.ones.copy() / 2
+        self.up        = self.ones.copy() / 2
+        self.dw        = self.ones.copy() / 2
         self.Fermi     = 0.0
         self.Fermi_prev= 0.0
 
@@ -50,7 +50,7 @@ class Green():
             self.t00       = np.kron( np.eye(2), self.t00 )
             self.t         = np.kron( np.eye(2), self.t   )
             self.td        = np.kron( np.eye(2), self.td  )
-            self.init_greenFunc_spin()
+            # self.init_greenFunc_spin()
             self.store_errors = store_errors
             if self.store_errors:
                 self.hist_err  = []
@@ -59,20 +59,10 @@ class Green():
     #
 
     def init_greenFunc_spin(self):
-        self.U         = 0.0
-        dE_up          = self.U * (self.dw_prev - 0.5)
-        dE_dw          = self.U * (self.up_prev - 0.5)
-        invE_up        = 1 / ( self.E + complex(0, self.eta) + dE_up )
-        invE_dw        = 1 / ( self.E + complex(0, self.eta) + dE_dw )
-        g_up           = invE_up * self.eye
-        g_dw           = invE_dw * self.eye
-
-        matrix_up, matrix_dw = np.eye(2), np.eye(2)
-        matrix_up[1, 1] = 0
-        matrix_dw[0, 0] = 0
-        G_up = np.kron( matrix_up, g_up )
-        G_dw = np.kron( matrix_dw, g_dw )
-        self.greenFunc = G_up + G_dw
+        self.U         = -1.0
+        hub_up, hub_dw = self.get_Hubbard_terms(self.U, self.up_prev, self.dw_prev)
+        e_minus_onsite = self.get_energy_minus_onsite(self.energy, self.onsite_list)
+        self.greenFunc = self.get_isolated_Green(e_minus_onsite, self.eta, hub_up, hub_dw)
     #
 
 
@@ -207,49 +197,59 @@ class Green():
         n       = self.size
         nMinus1 = n - 1
 
-        self.up_prev[0]       -= 0.5
-        self.up_prev[nMinus1] += 0.5
+        self.up_prev[0]       -= 0.2
+        self.up_prev[nMinus1] += 0.2
         
-        self.dw_prev[0]       += 0.5
-        self.dw_prev[nMinus1] -= 0.5
+        self.dw_prev[0]       += 0.2
+        self.dw_prev[nMinus1] -= 0.2
     #
 
-    def get_occupation(self):
-        eps = 0.1
-        ef  = self.Fermi
-        dx = 0.2
-        x_list = np.arange(dx, 1.0, dx) # avoid zero, so avoid dividing by zero in invE = 1 / E_
-        len_x = len(x_list)
-        nAtoms = self.size
+    @staticmethod
+    def get_Hubbard_terms(U, up, dw):
+        hub_up = U * (dw - 0.5)
+        hub_dw = U * (up - 0.5)
+        return hub_up, hub_dw
 
-        n2 = nAtoms * 2
-        g2 = np.zeros( (len_x, n2), dtype=complex )
-        E_ = self.Fermi - self.onsite_list  # they must be numpy arrays
+    @staticmethod
+    def get_energy_minus_onsite(energy, onsite_list):
+        e_minus_onsite = energy - onsite_list  # they must be numpy arrays
+        return e_minus_onsite
 
-        prod_list = np.ones(len_x)
-        for (i, x) in enumerate(x_list):
-            prod_list[i] = 1 / (1 - pow(x, 2))
-        #
+    @staticmethod
+    def get_isolated_Green(e_minus_onsite, eta, hubbard_up, hubbard_dw):
+        g_up = lib.get_isolated_Green_(e_minus_onsite, eta, hubbard_up)
+        g_dw = lib.get_isolated_Green_(e_minus_onsite, eta, hubbard_dw)
         
-        dE_up          = self.U * (self.dw_prev - 0.5)
-        dE_dw          = self.U * (self.up_prev - 0.5)
-        for (i, x) in enumerate(x_list):
-            invE_up  = 1 / (  E_ + complex(0, x) + dE_up )
-            invE_dw  = 1 / (  E_ + complex(0, x) + dE_dw )
-            g_up     = invE_up * self.eye
-            g_dw     = invE_dw * self.eye
-            
-            matrix_up, matrix_dw = np.eye(2), np.eye(2)
-            matrix_up[1, 1] = 0
-            matrix_dw[0, 0] = 0
-            G_up = np.kron( matrix_up, g_up )
-            G_dw = np.kron( matrix_dw, g_dw )
-            
-            g_   = G_up + G_dw
+        matrix_up, matrix_dw = np.eye(2), np.eye(2)
+        matrix_up[1, 1] = 0
+        matrix_dw[0, 0] = 0
+        G_up = np.kron( matrix_up, g_up )
+        G_dw = np.kron( matrix_dw, g_dw )
+        
+        g_   = G_up + G_dw
+        return g_
+
+
+    def get_occupation(self):        
+        dx       = 0.05
+        x_list   = np.arange(dx, 1.0, dx) # avoid zero, so avoid dividing by zero in invE = 1 / E_
+        eta_list = x_list / ( 1 - x_list)
+        fac_list = 1 / np.power( 1 - x_list, 2)
+        len_x    = len(x_list)
+
+        nAtoms   = self.size
+        n2       = nAtoms * 2
+        g2       = np.zeros( (len_x, n2), dtype=complex )
+        
+        hub_up, hub_dw = self.get_Hubbard_terms(self.U, self.up_prev, self.dw_prev)
+        e_minus_onsite = self.get_energy_minus_onsite(self.Fermi, self.onsite_list)    
+
+        for (i, eta) in enumerate(eta_list):
+            g_ = self.get_isolated_Green(e_minus_onsite, eta, hub_up, hub_dw)
             
             g_   = lib.decimate(g_, self.t00, self.t, self.td)
             gii  = g_.diagonal()
-            g2[i, :] = gii[:] * prod_list[i]
+            g2[i, :] = gii[:] * fac_list[i]
         #
         
         for j in range(nAtoms):
@@ -261,18 +261,18 @@ class Green():
     #
 
     @staticmethod
-    def is_under_error(list, list_prev, error):
-        error_list = (list - list_prev) / list_prev # so, they must be numpy arrays
-        return np.all(error_list < error), max(error_list)
+    def is_above_error(list, list_prev, error):
+        error_list = np.abs( (list - list_prev) / list_prev ) # so, they must be numpy arrays
+        return np.any(error_list > error), max(error_list)
 
-    def converged(self):
+    def unconverged(self):
         error = 0.1
-        up_under_error, max_err_up = self.is_under_error(self.up, self.up_prev, error)
-        dw_under_error, max_err_dw = self.is_under_error(self.dw, self.dw_prev, error)
+        up_unconverged, max_err_up = self.is_above_error(self.up, self.up_prev, error)
+        dw_unconverged, max_err_dw = self.is_above_error(self.dw, self.dw_prev, error)
         if self.store_errors:
             self.hist_err.append( abs(max(max_err_up, max_err_dw)) )
         #
-        return up_under_error and dw_under_error
+        return up_unconverged or dw_unconverged
 
     @staticmethod
     def get_pondered_sum(list, list_prev):
@@ -287,20 +287,18 @@ class Green():
         self.Fermi_prev   = self.get_pondered_sum(self.Fermi, self.Fermi_prev)
 
     def solve_self_consistent(self):
-        self.get_ansatz()
-        for i in range(5):
-            self.get_occupation() # update self.up, self.dw
-            if self.converged():  # compare self.up, self.dw with self.up_prev and self.dw_prev
-                self.update_spin_info() # update self.up_prev, self.dw_prev
-            #
+        self.get_ansatz()          # update self.up_prev, self.dw_prev
+        self.init_greenFunc_spin() # update self.greenFunc with the new self.up_prev, self.dw_prev
+        self.get_occupation()      # update self.up, self.dw
+        for i in range(15):
+            # self.get_occupation() # update self.up, self.dw
+            if self.unconverged():    # compare self.up, self.dw with self.up_prev and self.dw_prev
+                self.update_spin_info() # update self.up_prev, self.dw_prev using pondered sum
+                self.get_occupation()   # update self.up, self.dw
         #
-        self.init_greenFunc_spin() # updates self.greenFunc with the new self.up_prev, self.dw_prev
+        
+        self.init_greenFunc_spin() # update self.greenFunc with the new self.up_prev, self.dw_prev
         g = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
-        # print(np.round(g, 2))
-
-        # if self.store_errors:
-        #     print("g:", len(self.hist_err))
-        # #
         return g
     #
 #

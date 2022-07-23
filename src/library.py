@@ -51,3 +51,9 @@ def decimate(isolated_greenFunc, t00, t, td):
     #
     return GR
 #    
+
+def get_isolated_Green_(e_minus_onsite, eta, contrib_list=0):
+    invE     = 1 / (  e_minus_onsite + complex(0, eta) + contrib_list )
+    greenFun = np.diag( invE )
+    return greenFun
+
