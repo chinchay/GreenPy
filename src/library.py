@@ -50,10 +50,54 @@ def decimate(isolated_greenFunc, t00, t, td):
         GR  = renormalize( matmul(Z, ZzD) + matmul(ZzD,Z), GR )
     #
     return GR
-#    
+#
+
+def get_energy_minus_onsite(energy, onsite_list):
+    e_minus_onsite = energy - onsite_list  # they must be numpy arrays
+    return e_minus_onsite
 
 def get_isolated_Green_(e_minus_onsite, eta, contrib_list=0):
     invE     = 1 / (  e_minus_onsite + complex(0, eta) + contrib_list )
     greenFun = np.diag( invE )
     return greenFun
 
+def get_t00_2ZGNR():
+    t00 = [ [0, 1, 0, 0],
+            [1, 0, 1, 0],
+            [0, 1, 0, 1],
+            [0, 0, 1, 0]
+            ]
+    return np.asarray(t00)
+
+def get_t_2ZGNR():
+    t   = [ [0, 1, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 1, 0],
+    ]
+    return np.asarray(t)
+
+def get_eye_up():
+    eye_up = np.eye(2)
+    eye_up[1, 1] = 0
+    return eye_up
+
+def get_eye_dw():
+    eye_dw = np.eye(2)
+    eye_dw[0, 0] = 0
+    return eye_dw
+
+def get_grid_imag_axis():
+    dx       = 0.05
+    x_list   = np.arange(dx, 1.0, dx) # avoid zero, so avoid dividing by zero in invE = 1 / E_
+    eta_list = x_list / ( 1 - x_list)
+    fac_list = 1 / np.power( 1 - x_list, 2)
+    return eta_list, fac_list, dx
+
+def get_pondered_sum(list, list_prev):
+    alpha = 0.5
+    return (alpha * list) + ((1 - alpha) * list_prev)
+
+def is_above_error(list, list_prev, error):
+    error_list = np.abs( (list - list_prev) / list_prev ) # so, they must be numpy arrays
+    return np.any(error_list > error), max(error_list)
