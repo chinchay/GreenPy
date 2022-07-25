@@ -14,7 +14,7 @@ class Green():
         - Decimation or "dressing up" of the interacting Green function is calculated through iteratively use of the Dyson equation
     """
 
-    def __init__( self, t00=eye2, t=eye2, td=eye2, energy=-2.0, onsite_list=zeros2, eta=0.01, consider_spin=False, store_errors=False):
+    def __init__(self, t00=eye2, t=eye2, td=eye2, onsite_list=zeros2, eta=0.01, consider_spin=False):
         """Initialize the isolated Green function
 
         Args:
@@ -29,45 +29,47 @@ class Green():
         self.t         = t
         self.td        = td
         self.size      = len(onsite_list)
-        self.eta       = eta
-        self.energy    = energy
+        self.eta       = eta        
         self.onsite_list = onsite_list
 
-        e_minus_onsite = lib.get_energy_minus_onsite(self.energy, self.onsite_list)
-        self.greenFunc = lib.get_isolated_Green_(e_minus_onsite, self.eta)
-
         self.consider_spin = consider_spin
-        self.ones      = np.ones(self.size)
-        self.eye       = np.eye(self.size)
-        self.up_prev   = self.ones.copy() / 2
-        self.dw_prev   = self.ones.copy() / 2
-        self.up        = self.ones.copy() / 2
-        self.dw        = self.ones.copy() / 2
-        self.Fermi     = 0.0
-        self.Fermi_prev= 0.0
-
         if consider_spin:
             self.t00       = np.kron( np.eye(2), self.t00 )
             self.t         = np.kron( np.eye(2), self.t   )
             self.td        = np.kron( np.eye(2), self.td  )
-            # self.init_greenFunc_spin()
-            self.store_errors = store_errors
-            if self.store_errors:
-                self.hist_err  = []
-            #
+            self.ones      = np.ones(self.size)
+            self.eye       = np.eye(self.size)
+            self.up_prev   = self.ones.copy() / 2
+            self.dw_prev   = self.ones.copy() / 2
+            self.up        = self.ones.copy() / 2
+            self.dw        = self.ones.copy() / 2
+            self.Fermi     = 0.0
+            self.Fermi_prev= 0.0
             self.eta_list, self.fac_list, self.dx = lib.get_grid_imag_axis()
         #
     #
 
-    def init_greenFunc_spin(self):
+    def init_greenFunc(self, energy, store_errors):
+        self.energy    = energy
+        self.store_errors = store_errors
+        self.hist_err  = [] if store_errors else None
+        e_minus_onsite = lib.get_energy_minus_onsite(self.energy, self.onsite_list)
+        self.greenFunc = lib.get_isolated_Green_(e_minus_onsite, self.eta)
+
+
+
+    def init_greenFunc_spin(self, energy, store_errors):
         self.U         = -1.0
+        self.energy    = energy
+        self.store_errors = store_errors
+        self.hist_err  = [] if store_errors else None
+
         hub_up, hub_dw = self.get_Hubbard_terms(self.U, self.up_prev, self.dw_prev)
         e_minus_onsite = lib.get_energy_minus_onsite(self.energy, self.onsite_list)
         self.greenFunc = self.get_isolated_Green(e_minus_onsite, self.eta, hub_up, hub_dw)
+
+        
     #
-
-
-
     
     def __repr__(self) -> str:
         """Provides information about the complex energy selected """
@@ -76,16 +78,18 @@ class Green():
     def update(self, g):
         self.greenFunc = g.copy()
 
-    def get_total_density(self):
+    def get_total_density(self, energy=-2.0, store_errors=False):
         """Calculates the density of states by calculating the trace of the Green function"""
+        self.init_greenFunc(energy, store_errors)
         g_decimated = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
         self.update(g_decimated)
         return -np.trace( g_decimated.imag ) / (self.size * pi)
 
-    def get_density_per_spin(self):
+    def get_density_per_spin(self, energy, store_errors=False):
+        self.init_greenFunc_spin(energy, store_errors)
         g_decimated = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
         self.update(g_decimated)
-        dens_up, dens_dw = lib.get_half_traces(g_decimated, self.size)
+        dens_up, dens_dw = lib.get_half_traces(g_decimated.imag, self.size)
 
         denominator = self.size * pi
         dens_up /= denominator
@@ -109,8 +113,8 @@ class Green():
         #   
         onsite_list = np.zeros(1)
         eta     = 0.001
-        g       = Green(t00, t, td, energy=energy, onsite_list=onsite_list, eta=eta)
-        density = g.get_total_density()
+        g       = Green(t00, t, td, onsite_list=onsite_list, eta=eta)
+        density = g.get_total_density(energy=energy)
         return density
 
     @staticmethod
@@ -129,8 +133,8 @@ class Green():
         #
         onsite_list = np.zeros( t00.shape[0] )
         eta     = 0.001
-        g       = Green(t00, t, td, energy=energy, onsite_list=onsite_list, eta=eta)
-        density = g.get_total_density()
+        g       = Green(t00, t, td, onsite_list=onsite_list, eta=eta)
+        density = g.get_total_density(energy=energy)
         return density
     
     @staticmethod
@@ -203,24 +207,24 @@ class Green():
         g_   = G_up + G_dw
         return g_
 
-    def get_g2(self, e_minus_onsite, eta_list, hub_up, hub_dw, fac_list):
+    def get_integrand(self, e_minus_onsite, eta_list, hub_up, hub_dw, fac_list):
         len_x = len(eta_list)
         n2    = len(e_minus_onsite) * 2
-        g2    = np.zeros( (len_x, n2), dtype=complex )
+        integ = np.zeros( (len_x, n2), dtype=complex )
         for (i, eta) in enumerate(eta_list):
             g_ = self.get_isolated_Green(e_minus_onsite, eta, hub_up, hub_dw)
             
             g_   = lib.decimate(g_, self.t00, self.t, self.td)
             gii  = g_.diagonal()
-            g2[i, :] = gii[:] * fac_list[i]
+            integ[i, :] = gii[:] * fac_list[i]
         #
-        return g2        
+        return integ
 
-    def integrate_complex_plane(self, g2, dx):
+    def integrate_complex_plane(self, integrand, dx):
         nAtoms   = self.size
         for j in range(nAtoms):
-            sum_up    = np.trapz( y=g2[:, j].real, x=None, dx=dx, axis=-1 )
-            sum_dw    = np.trapz( y=g2[:, j + nAtoms].real, x=None, dx=dx, axis=-1 )
+            sum_up    = np.trapz( y=integrand[:, j].real, x=None, dx=dx, axis=-1 )
+            sum_dw    = np.trapz( y=integrand[:, j + nAtoms].real, x=None, dx=dx, axis=-1 )
             self.up[j] = 0.5 + ( invPi * sum_up )
             self.dw[j] = 0.5 + ( invPi * sum_dw )
         #
@@ -229,8 +233,8 @@ class Green():
     def get_occupation(self):
         hub_up, hub_dw = self.get_Hubbard_terms(self.U, self.up_prev, self.dw_prev)
         e_minus_onsite = lib.get_energy_minus_onsite(self.Fermi, self.onsite_list)    
-        g2 = self.get_g2(e_minus_onsite, self.eta_list, hub_up, hub_dw, self.fac_list)
-        self.integrate_complex_plane(g2, self.dx) # updates self.up, self.dw
+        integrand      = self.get_integrand(e_minus_onsite, self.eta_list, hub_up, hub_dw, self.fac_list)
+        self.integrate_complex_plane(integrand, self.dx) # updates self.up, self.dw
     #
 
     def unconverged(self):
@@ -249,19 +253,19 @@ class Green():
         self.dw_prev      = lib.get_pondered_sum(self.dw, self.dw_prev)
         self.Fermi_prev   = lib.get_pondered_sum(self.Fermi, self.Fermi_prev)
 
-    def solve_self_consistent(self):
+
+    def find_occupations(self, store_errors=True):
         self.get_ansatz()          # update self.up_prev, self.dw_prev
-        self.init_greenFunc_spin() # update self.greenFunc with the new self.up_prev, self.dw_prev
-        self.get_occupation()      # update self.up, self.dw
-        for i in range(15):
-            if self.unconverged():    # compare self.up, self.dw with self.up_prev and self.dw_prev
+        energy = self.Fermi_prev
+        self.init_greenFunc_spin(energy, store_errors) # update self.greenFunc with the new self.up_prev, self.dw_prev
+        count = 0
+        # self.unconverged() compares self.up, self.dw with self.up_prev and self.dw_prev
+        while self.unconverged() and (count < 15):
+            count += 1
+            if count != 1:
                 self.update_spin_info() # update self.up_prev, self.dw_prev using pondered sum
-                self.get_occupation()   # update self.up, self.dw
-            else:
-                break
+            #
+            self.get_occupation()   # update self.up, self.dw
         #
-        
-        self.init_greenFunc_spin() # update self.greenFunc with the new self.up_prev, self.dw_prev
-        g = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
-        return g
-    #
+        # occupations are already updated in self.up and self.dw
+#

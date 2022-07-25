@@ -101,3 +101,9 @@ def get_pondered_sum(list, list_prev):
 def is_above_error(list, list_prev, error):
     error_list = np.abs( (list - list_prev) / list_prev ) # so, they must be numpy arrays
     return np.any(error_list > error), max(error_list)
+
+def get_half_traces(matrix, n):
+    diag     = matrix.diagonal()
+    diag_up  = sum( diag[:n] )
+    diag_dw  = sum( diag[n:] )
+    return -diag_up, -diag_dw
