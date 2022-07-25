@@ -1,6 +1,9 @@
 import numpy as np
 import library as lib
 
+from numpy.linalg import solve
+from numpy import matmul
+
 eye2   = np.eye(2, dtype=complex)
 zeros2 = np.zeros(2, dtype=complex)
 pi     = 3.14159
@@ -25,6 +28,7 @@ class Green():
             - onsite_list : np.array type, on-site energies of each site on the cell
             - eta : float, `<< 1`
         """
+        self.U         = 0
         self.t00       = t00
         self.t         = t
         self.td        = td
@@ -32,69 +36,82 @@ class Green():
         self.eta       = eta        
         self.onsite_list = onsite_list
 
+        zeros          = np.zeros(self.size)
+        self.initialize_occupations(zeros)
+        self.eye       = np.eye(self.size, dtype=complex)
+
         self.consider_spin = consider_spin
         if consider_spin:
+            self.U         = -1.0
             self.t00       = np.kron( np.eye(2), self.t00 )
             self.t         = np.kron( np.eye(2), self.t   )
             self.td        = np.kron( np.eye(2), self.td  )
-            self.ones      = np.ones(self.size)
-            self.eye       = np.eye(self.size)
-            self.up_prev   = self.ones.copy() / 2
-            self.dw_prev   = self.ones.copy() / 2
-            self.up        = self.ones.copy() / 2
-            self.dw        = self.ones.copy() / 2
+
             self.Fermi     = 0.0
             self.Fermi_prev= 0.0
+            
             self.eta_list, self.fac_list, self.dx = lib.get_grid_imag_axis()
+
+            n2 = self.size * 2
+            self.greenFunc = np.zeros( (n2, n2), dtype=complex )
+
+            halfs          = np.ones(self.size) / 2
+            self.initialize_occupations(halfs)
+            self.eye       = np.eye(self.size * 2, dtype=complex)
         #
     #
 
-    def init_greenFunc(self, energy, store_errors):
-        self.energy    = energy
-        self.store_errors = store_errors
-        self.hist_err  = [] if store_errors else None
-        e_minus_onsite = lib.get_energy_minus_onsite(self.energy, self.onsite_list)
-        self.greenFunc = lib.get_isolated_Green_(e_minus_onsite, self.eta)
-
-
-
-    def init_greenFunc_spin(self, energy, store_errors):
-        self.U         = -1.0
-        self.energy    = energy
-        self.store_errors = store_errors
-        self.hist_err  = [] if store_errors else None
-
-        hub_up, hub_dw = self.get_Hubbard_terms(self.U, self.up_prev, self.dw_prev)
-        e_minus_onsite = lib.get_energy_minus_onsite(self.energy, self.onsite_list)
-        self.greenFunc = self.get_isolated_Green(e_minus_onsite, self.eta, hub_up, hub_dw)
-
-        
+    def initialize_occupations(self, arr):
+        self.up_prev = arr.copy()
+        self.dw_prev = arr.copy()
+        self.up      = arr.copy()
+        self.dw      = arr.copy()
     #
-    
+
+    def init_greenFunc(self, energy, store_errors):
+        self.energy       = energy
+        self.store_errors = store_errors
+        self.hist_err     = [] if store_errors else None
+        all_energies_up, all_energies_dw  = self.get_all_energy_contributions(energy)
+        self.greenFunc = self.get_isolated_Green(all_energies_up, all_energies_dw, self.eta)
+    #
+
+    def get_all_energy_contributions(self, energy):
+        e_minus_onsite   = lib.get_energy_minus_onsite(energy, self.onsite_list)
+        hub_up, hub_dw   = self.get_Hubbard_terms(self.U, self.up_prev, self.dw_prev)
+        all_energies_up  = e_minus_onsite + hub_up
+        all_energies_dw  = e_minus_onsite + hub_dw
+        return all_energies_up, all_energies_dw
+    #
+
     def __repr__(self) -> str:
         """Provides information about the complex energy selected """
         return f"Green object with energy={round(self.energy, 3)}, eta={round(self.eta, 5)}"
+    #
 
     def update(self, g):
         self.greenFunc = g.copy()
+    #
 
-    def get_total_density(self, energy=-2.0, store_errors=False):
+    def get_dens(self):
+        denominator = self.size * pi
+        if self.consider_spin:
+            trace_up, trace_dw = lib.get_half_traces(self.greenFunc.imag, self.size)
+            dens_up = -trace_up / denominator
+            dens_dw = -trace_dw / denominator
+        else:
+            dens_up = -np.trace( self.greenFunc.imag ) / denominator
+            dens_dw = None
+        #
+        return dens_up, dens_dw
+    #
+
+    def get_DOS(self, energy, store_errors=False):
         """Calculates the density of states by calculating the trace of the Green function"""
         self.init_greenFunc(energy, store_errors)
-        g_decimated = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
+        g_decimated = self.decimate(self.greenFunc, self.t00, self.t, self.td)
         self.update(g_decimated)
-        return -np.trace( g_decimated.imag ) / (self.size * pi)
-
-    def get_density_per_spin(self, energy, store_errors=False):
-        self.init_greenFunc_spin(energy, store_errors)
-        g_decimated = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
-        self.update(g_decimated)
-        dens_up, dens_dw = lib.get_half_traces(g_decimated.imag, self.size)
-
-        denominator = self.size * pi
-        dens_up /= denominator
-        dens_dw /= denominator
-        return dens_up, dens_dw
+        return self.get_dens()
     #
 
     @staticmethod
@@ -114,7 +131,7 @@ class Green():
         onsite_list = np.zeros(1)
         eta     = 0.001
         g       = Green(t00, t, td, onsite_list=onsite_list, eta=eta)
-        density = g.get_total_density(energy=energy)
+        density, _ = g.get_DOS(energy=energy)
         return density
 
     @staticmethod
@@ -134,7 +151,7 @@ class Green():
         onsite_list = np.zeros( t00.shape[0] )
         eta     = 0.001
         g       = Green(t00, t, td, onsite_list=onsite_list, eta=eta)
-        density = g.get_total_density(energy=energy)
+        density, _ = g.get_DOS(energy=energy)
         return density
     
     @staticmethod
@@ -196,25 +213,31 @@ class Green():
         hub_dw = U * (up - 0.5)
         return hub_up, hub_dw
 
-    @staticmethod
-    def get_isolated_Green(e_minus_onsite, eta, hubbard_up, hubbard_dw):
-        g_up = lib.get_isolated_Green_(e_minus_onsite, eta, hubbard_up)
-        g_dw = lib.get_isolated_Green_(e_minus_onsite, eta, hubbard_dw)
-        
-        G_up = np.kron( lib.get_eye_up(), g_up )
-        G_dw = np.kron( lib.get_eye_dw(), g_dw )
-        
-        g_   = G_up + G_dw
-        return g_
+    # @profile
+    def get_isolated_Green(self, all_energies_up, all_energies_dw, eta):
+        if self.consider_spin:
+            g_up = lib.get_isolated_Green_(all_energies_up, eta)
+            g_dw = lib.get_isolated_Green_(all_energies_dw, eta)
+            
+            n = self.size
+            self.greenFunc[:] = 0
+            self.greenFunc[:n, :n] = g_up[:,:]
+            self.greenFunc[n:, n:] = g_dw[:,:]
+            return self.greenFunc
+        else:
+            return lib.get_isolated_Green_(all_energies_up, eta)
+        #
 
-    def get_integrand(self, e_minus_onsite, eta_list, hub_up, hub_dw, fac_list):
+    # @profile
+    def get_integrand(self, all_energies_up, all_energies_dw, eta_list, fac_list):
+        # Assuming self.consider_spin == True
         len_x = len(eta_list)
-        n2    = len(e_minus_onsite) * 2
+        n2    = self.size * 2
         integ = np.zeros( (len_x, n2), dtype=complex )
         for (i, eta) in enumerate(eta_list):
-            g_ = self.get_isolated_Green(e_minus_onsite, eta, hub_up, hub_dw)
+            g_ = self.get_isolated_Green(all_energies_up, all_energies_dw, eta)
             
-            g_   = lib.decimate(g_, self.t00, self.t, self.td)
+            g_   = self.decimate(g_, self.t00, self.t, self.td)
             gii  = g_.diagonal()
             integ[i, :] = gii[:] * fac_list[i]
         #
@@ -230,10 +253,10 @@ class Green():
         #
     #
 
+    # @profile
     def get_occupation(self):
-        hub_up, hub_dw = self.get_Hubbard_terms(self.U, self.up_prev, self.dw_prev)
-        e_minus_onsite = lib.get_energy_minus_onsite(self.Fermi, self.onsite_list)    
-        integrand      = self.get_integrand(e_minus_onsite, self.eta_list, hub_up, hub_dw, self.fac_list)
+        all_energies_up, all_energies_dw = self.get_all_energy_contributions(self.Fermi)        
+        integrand = self.get_integrand(all_energies_up, all_energies_dw, self.eta_list, self.fac_list)
         self.integrate_complex_plane(integrand, self.dx) # updates self.up, self.dw
     #
 
@@ -253,11 +276,11 @@ class Green():
         self.dw_prev      = lib.get_pondered_sum(self.dw, self.dw_prev)
         self.Fermi_prev   = lib.get_pondered_sum(self.Fermi, self.Fermi_prev)
 
-
+    # @profile
     def find_occupations(self, store_errors=True):
         self.get_ansatz()          # update self.up_prev, self.dw_prev
         energy = self.Fermi_prev
-        self.init_greenFunc_spin(energy, store_errors) # update self.greenFunc with the new self.up_prev, self.dw_prev
+        self.init_greenFunc(energy, store_errors) # update self.greenFunc with the new self.up_prev, self.dw_prev
         count = 0
         # self.unconverged() compares self.up, self.dw with self.up_prev and self.dw_prev
         while self.unconverged() and (count < 15):
@@ -269,3 +292,54 @@ class Green():
         #
         # occupations are already updated in self.up and self.dw
 #
+
+    # @profile
+    def renormalize(self, Z, Q):
+        """Calculates the "dressed-up" Green function 
+        
+        Specifically:
+        `GreenFunction_new = Inverse( Identity - Z ) * Q`
+        
+        Args:
+            - Z : numpy array, interaction information
+            - Q : numpy array, Green function
+
+        Returns:
+            - renormalized: numpy array, the new Green function of the dressed-up system
+        """
+        # size = Q.shape[0]
+        # ident = np.eye(size, dtype=complex)
+        # ident = eye8
+        temp = self.eye - Z
+        renormalized = solve(temp, Q)
+        return renormalized
+    #
+
+    # @profile
+    def decimate(self, isolated_greenFunc, t00, t, td):
+        """Applies the Dyson equation iteratively
+
+        Args:
+            - None
+
+        Returns:
+            - GR, numpy array, the renormalized Green function throug the use of the `renormalize()` function
+        """ 
+        # careful here, between .dot and matmul
+        # https://stackoverflow.com/questions/34142485/difference-between-numpy-dot-and-python-3-5-matrix-multiplication#:~:text=matmul%20differs%20from%20dot%20in,if%20the%20matrices%20were%20elements.
+        temp = matmul( isolated_greenFunc, t00 )
+
+        GR  = self.renormalize(temp, isolated_greenFunc)
+        TR  = t
+        TRD = td
+        
+        iterations = 15
+        for _ in range(iterations):
+            Z   = matmul( GR, TR  )               # Z(N-1)   = GR(N-1)*TR(N-1)
+            ZzD = matmul( GR, TRD )               # ZzD(N-1) = GR(N-1)*TRD(N-1)
+            TR  = matmul( matmul(TR, GR), TR )    # TR(N)    = TR(N-1)*GR(N-1)*TR(N-1)
+            TRD = matmul( matmul(TRD, GR), TRD )  # TRD(N)   = TRD(N-1)*GR(N-1)*TRD(N-1)
+            GR  = self.renormalize( matmul(Z, ZzD) + matmul(ZzD,Z), GR )
+        #
+        return GR
+    #
