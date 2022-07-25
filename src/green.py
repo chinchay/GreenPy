@@ -57,7 +57,9 @@ class Green():
 
             halfs          = np.ones(self.size) / 2
             self.initialize_occupations(halfs)
-            self.eye       = np.eye(self.size * 2, dtype=complex)
+            
+            # self.zeros     = np.zeros( (n2, n2), dtype=complex)
+            self.eye       = np.eye(n2, dtype=complex)
         #
     #
 
@@ -220,7 +222,8 @@ class Green():
             g_dw = lib.get_isolated_Green_(all_energies_dw, eta)
             
             n = self.size
-            self.greenFunc[:] = 0
+            # self.greenFunc[:, :] = self.zeros[:, :]
+            self.greenFunc = np.zeros((self.size * 2, self.size * 2), dtype=complex)
             self.greenFunc[:n, :n] = g_up[:,:]
             self.greenFunc[n:, n:] = g_dw[:,:]
             return self.greenFunc
@@ -333,7 +336,7 @@ class Green():
         TR  = t
         TRD = td
         
-        iterations = 15
+        iterations = 10 #15
         for _ in range(iterations):
             Z   = matmul( GR, TR  )               # Z(N-1)   = GR(N-1)*TR(N-1)
             ZzD = matmul( GR, TRD )               # ZzD(N-1) = GR(N-1)*TRD(N-1)
