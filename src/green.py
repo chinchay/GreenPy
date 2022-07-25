@@ -83,15 +83,10 @@ class Green():
         return -np.trace( g_decimated.imag ) / (self.size * pi)
 
     def get_density_per_spin(self):
-        g_consistent = self.solve_self_consistent()
-        self.update(g_consistent)
+        g_decimated = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
+        self.update(g_decimated)
+        dens_up, dens_dw = lib.get_half_traces(g_decimated, self.size)
 
-        n = self.size
-        dens_up, dens_dw = 0, 0
-        for i in range(n):
-            dens_up -= self.greenFunc[i, i].imag
-            dens_dw -= self.greenFunc[i + n, i + n].imag
-        #
         denominator = self.size * pi
         dens_up /= denominator
         dens_dw /= denominator
@@ -270,4 +265,3 @@ class Green():
         g = lib.decimate(self.greenFunc, self.t00, self.t, self.td)
         return g
     #
-#
