@@ -37,8 +37,10 @@ Further code development is under work. The `src` folder contains a performance 
 
 
 ## References
-* E. Economou. *Green’s Functions in Quantum Physics*. Springer, 2006. 11, 12, 70
-* M. Di Ventra. *Electrical Transport in Nanoscale Systems*, 1st edition, pp 150. Cambridge University Press, 2008. 73
+        
+* [Rocha, C. __*Propriedades Físicas de Nanotubos de Carbono*__. Universidade Federal Fluminense, Brazil, 2005](http://oldsite.if.uff.br/index.php?option=com_content&view=article&id=348)
+* E. Economou. __*Green’s Functions in Quantum Physics*__. Springer, 2006. 11, 12, 70
+* M. Di Ventra. __*Electrical Transport in Nanoscale Systems*__, 1st edition, pp 150. Cambridge University Press, 2008. 73
 
 
 

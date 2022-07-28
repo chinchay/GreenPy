@@ -24,9 +24,9 @@ class Green():
             - t00 : np.array type, cell self-interation
             - t   : np.array type, CENTER-RIGHT interaction
             - td  : np.array type, CENTER-LEFT interaction
-            - energy : float, 
             - onsite_list : np.array type, on-site energies of each site on the cell
             - eta : float, `<< 1`
+            - consider_spin: bool type, for spin-degree of freedom
         """
         self.U         = 0
         self.t00       = t00
@@ -64,6 +64,11 @@ class Green():
     #
 
     def initialize_occupations(self, arr):
+        """Copy `arr` to self.up_prev, self.dw_pre, self.up, and self.dw
+
+        Args:
+            arr (np.array)
+        """
         self.up_prev = arr.copy()
         self.dw_prev = arr.copy()
         self.up      = arr.copy()
@@ -71,6 +76,12 @@ class Green():
     #
 
     def init_greenFunc(self, energy, store_errors):
+        """Initializes variables dependent on `energy`
+
+        Args:
+            energy (float): Energy in hopping or eV units
+            store_errors (bool): Allows to save convergence evolution
+        """
         self.energy       = energy
         self.store_errors = store_errors
         self.hist_err     = [] if store_errors else None
@@ -79,6 +90,15 @@ class Green():
     #
 
     def get_all_energy_contributions(self, energy):
+        """Consider on-site and electronic repulsion energies into each atom site
+
+        Args:
+            energy (float): Energy in hopping or eV units
+
+        Returns:
+            all_energies_up : relative energies for electrons with spin up
+            all_energies_dw : None if consider_spin=False
+        """
         e_minus_onsite   = lib.get_energy_minus_onsite(energy, self.onsite_list)
         hub_up, hub_dw   = self.get_Hubbard_terms(self.U, self.up_prev, self.dw_prev)
         all_energies_up  = e_minus_onsite + hub_up
@@ -92,10 +112,22 @@ class Green():
     #
 
     def update(self, g):
+        """Updates self.greenFunc with g
+
+        Args:
+            g (numpy array)
+        """
         self.greenFunc = g.copy()
     #
 
     def get_dens(self):
+        """Calculate density of states (DOS) by 
+        getting the trace of the Green Function matrix
+
+        Returns:
+            dens_up: DOS at each atom site for electrons with spin up
+            dens_dw: None if consider_spin=False
+        """
         denominator = self.size * pi
         if self.consider_spin:
             trace_up, trace_dw = lib.get_half_traces(self.greenFunc.imag, self.size)
@@ -211,12 +243,33 @@ class Green():
 
     @staticmethod
     def get_Hubbard_terms(U, up, dw):
+        """Calculate the electronic correlation using a mean-field approximation
+
+        Args:
+            U (float): Hubbard penalty, in eV or hopping units
+            up (array float): occupations with spin upward
+            dw (array float): occupations with spin downward
+
+        Returns:
+            ub_up: energy contribution for electronics with spin up
+            ub_dw: energy contribution for electronics with spin dw
+        """
         hub_up = U * (dw - 0.5)
         hub_dw = U * (up - 0.5)
         return hub_up, hub_dw
 
     # @profile
     def get_isolated_Green(self, all_energies_up, all_energies_dw, eta):
+        """Build the isolated Green function for the system
+
+        Args:
+            all_energies_up (np array): relative energies at each atomic site for spin-up electrons
+            all_energies_dw (np array): relative energies at each atomic site for spin-dw electrons
+            eta (float): imaginary part of the energy in the complex plane (E = energy + i * eta)
+
+        Returns:
+            isolated_green_funtion (np array): complex diagonal matrix
+        """
         if self.consider_spin:
             g_up = lib.get_isolated_Green_(all_energies_up, eta)
             g_dw = lib.get_isolated_Green_(all_energies_dw, eta)
@@ -233,6 +286,24 @@ class Green():
 
     # @profile
     def get_integrand(self, all_energies_up, all_energies_dw, eta_list, fac_list):
+        """The integral of the DOS along the energy axis gives the 
+        occupation. To avoid singularities, the integral is performed
+        on the complex plane. This function builds the integrand function.
+        
+        See reference:
+        Rocha, C. Propriedades Físicas de Nanotubos de Carbono. 2005
+        Universidade Federal Fluminense, Niterói, 2005
+        http://oldsite.if.uff.br/index.php?option=com_content&view=article&id=348
+
+        Args:
+            all_energies_up (np array): relative energies for spin-up electrons
+            all_energies_dw (np array): relative energies for spin-dw electrons
+            eta_list (np array): values of the imaginary part
+            fac_list (np array): grid on the imaginary axis
+
+        Returns:
+            integ (np array) : integrand function
+        """
         # Assuming self.consider_spin == True
         len_x = len(eta_list)
         n2    = self.size * 2
@@ -247,6 +318,12 @@ class Green():
         return integ
 
     def integrate_complex_plane(self, integrand, dx):
+        """Sum up the integrand function to obtain the density of states
+
+        Args:
+            integrand (np array): see get_integrand() function docstring
+            dx (float): grid separation on the imaginary axis
+        """
         nAtoms   = self.size
         for j in range(nAtoms):
             sum_up    = np.trapz( y=integrand[:, j].real, x=None, dx=dx, axis=-1 )
@@ -258,12 +335,20 @@ class Green():
 
     # @profile
     def get_occupation(self):
+        """updates the occupation arrays by getting the Hubbard contributions,
+        and integrating the decimated Green function over the density of states
+        """
         all_energies_up, all_energies_dw = self.get_all_energy_contributions(self.Fermi)        
         integrand = self.get_integrand(all_energies_up, all_energies_dw, self.eta_list, self.fac_list)
         self.integrate_complex_plane(integrand, self.dx) # updates self.up, self.dw
     #
 
     def unconverged(self):
+        """Determines if occupations have converged after an iteration
+
+        Returns:
+            bool
+        """
         error = 0.1
         up_unconverged, max_err_up = lib.is_above_error(self.up, self.up_prev, error)
         dw_unconverged, max_err_dw = lib.is_above_error(self.dw, self.dw_prev, error)
@@ -281,6 +366,11 @@ class Green():
 
     # @profile
     def find_occupations(self, store_errors=True):
+        """Performs a self-consistent process to obtain occupations
+
+        Args:
+            store_errors (bool, optional): Whether or not to save evolution convergence. Defaults to True.
+        """
         self.get_ansatz()          # update self.up_prev, self.dw_prev
         energy = self.Fermi_prev
         self.init_greenFunc(energy, store_errors) # update self.greenFunc with the new self.up_prev, self.dw_prev
