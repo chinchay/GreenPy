@@ -28,12 +28,43 @@ Green.plot(energy_list, density_list)
 <img src="DOS.png" alt="drawing" width="450"/>
 
 
-Further code development is under work. The `src` folder contains a performance comparison between Numpy and LAPACK functions. Unit test is also available.
+The `src` folder contains a performance comparison between Numpy and LAPACK functions. Unit test is also available.
+
+The package allows to include electronic correlation. First, a self-consistent calculation is performed to find the occupation at each atom site:
+
+```python
+import numpy as np
+from green import Green
+import matplotlib.pyplot as plt
+import library as lib
+
+nAtoms = 4 # for a 2-ZGNR
+t00, t, td, onsite_list = lib.get_ZGNR_interactions(nAtoms)
+g = Green(t00=t00, t=t, td=td, onsite_list=onsite_list, consider_spin=True)
+
+store_errors=True
+g.find_occupations(store_errors=True)
+plt.plot(g.hist_err, '.')
+plt.show()
+```
+
+
+Now, the DOS for electrons with spin up and down can be found after a decimation process, using the converged occupations stored in `g`:
+
+```python
+up_list, dw_list = [], []
+for (i, energy) in enumerate(np.arange(-3.15, 3.25, 0.05)):
+    up, dw = g.get_DOS(energy=energy)
+    up_list.append(up)
+    dw_list.append(dw)
+#
+g.plot(energy_list, up_list)
+g.plot(energy_list, dw_list)
+```
 
 ## Under development
 
 * A future release will connect the code to ASE objects and calculators
-* Hubbard terms will be included to account for electronic correlation
 
 
 ## References

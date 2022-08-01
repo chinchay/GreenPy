@@ -144,3 +144,33 @@ def get_half_traces(matrix, n):
     trace_up  = sum( diag[:n] )
     trace_dw  = sum( diag[n:] )
     return trace_up, trace_dw
+
+def get_ZGNR_interactions(nAtoms):
+    """Returns the hopping interactions t00, t, td for a ZGNR with
+    number of atoms as nAtoms
+
+    Args:
+        nAtoms (int): Number of atoms in the ZGNR. Multiple of 4 (each cell has 4 atoms)
+
+    Returns:
+        t00, t, td: interaction matrices
+        onsite_list: on-site energies, zeros.
+    """
+    try:
+        assert nAtoms % 4 == 0
+    except:
+        print("number of atoms should be multiple of 4, since each cell has 4 atoms")        
+    #
+    ones = np.asarray(np.ones(nAtoms - 1))
+    t00  = np.diag(ones, k=1) + np.diag(ones, k=-1)
+    
+    t_onecell = [   [0, 1, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 1, 0],
+                ]
+    n_cells = nAtoms // 4
+    t    = np.kron( np.eye(n_cells), t_onecell)
+    td   = np.transpose(t)
+    onsite_list = np.zeros(nAtoms)
+    return t00, t, td, onsite_list
