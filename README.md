@@ -25,7 +25,7 @@ for energy in energy_list:
 Green.plot(energy_list, density_list)
 ```
 
-<img src="DOS.png" alt="drawing" width="450"/>
+<img src="images/DOS.png" alt="drawing" width="450"/>
 
 
 The `src` folder contains a performance comparison between Numpy and LAPACK functions. Unit test is also available.
@@ -48,12 +48,15 @@ plt.plot(g.hist_err, '.')
 plt.show()
 ```
 
+<img src="images/occupation_converge.png" alt="drawing" width="450"/>
+
 
 Now, the DOS for electrons with spin up and down can be found after a decimation process, using the converged occupations stored in `g`:
 
 ```python
+energy_list = np.arange(-3.15, 3.25, 0.05)
 up_list, dw_list = [], []
-for (i, energy) in enumerate(np.arange(-3.15, 3.25, 0.05)):
+for (i, energy) in enumerate(energy_list):
     up, dw = g.get_DOS(energy=energy)
     up_list.append(up)
     dw_list.append(dw)
@@ -62,9 +65,15 @@ g.plot(energy_list, up_list)
 g.plot(energy_list, dw_list)
 ```
 
+<img src="images/DOS_UP.png" alt="drawing" width="450"/>
+
+DOS curves are degenerated, so results for spin-down electrons are the same.
+
+
 ## Under development
 
 * A future release will connect the code to ASE objects and calculators
+* Electric and magnetic field effects
 
 
 ## References
