@@ -13,7 +13,7 @@ Ready to use methods are available: `get_density_OneLinearChain()` and `get_dens
 
 ```python
 import numpy as np
-from green import Green
+from src.green import Green
 import matplotlib.pyplot as plt
 
 energy_list  = np.arange(-3.15, 3.25, 0.05)
@@ -34,9 +34,9 @@ The package allows to include electronic correlation. First, a self-consistent c
 
 ```python
 import numpy as np
-from green import Green
+from src.green import Green
 import matplotlib.pyplot as plt
-import library as lib
+import src.library as lib
 
 nAtoms = 4 # for a 2-ZGNR
 t00, t, td, onsite_list = lib.get_ZGNR_interactions(nAtoms)

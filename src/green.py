@@ -1,6 +1,5 @@
 import numpy as np
-import library as lib
-
+from . import library as lib
 from numpy.linalg import solve
 from numpy import matmul
 
@@ -409,7 +408,7 @@ class Green():
     #
 
     # @profile
-    def decimate(self, isolated_greenFunc, t00, t, td):
+    def decimate(self, isolated_greenFunc, t00, t, td, iterations=10):
         """Applies the Dyson equation iteratively
 
         Args:
@@ -426,7 +425,7 @@ class Green():
         TR  = t
         TRD = td
         
-        iterations = 10 #15
+        # iterations = 10 #15
         for _ in range(iterations):
             Z   = matmul( GR, TR  )               # Z(N-1)   = GR(N-1)*TR(N-1)
             ZzD = matmul( GR, TRD )               # ZzD(N-1) = GR(N-1)*TRD(N-1)
