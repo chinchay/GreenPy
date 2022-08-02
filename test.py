@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from src.green import Green
+from src import Green
 
 class TestHamiltonianClass(unittest.TestCase):
     def setUp(self) -> None:
@@ -12,8 +12,10 @@ class TestHamiltonianClass(unittest.TestCase):
         onsite_list = np.zeros(1)
         energy = -1.0
         eta    = 0.001
-        g      = Green(t00, t, td, energy=energy, onsite_list=onsite_list, eta=eta)
-        self.decimated = g.decimate()
+        
+        g = Green(t00=t00, t=t, td=td, onsite_list=onsite_list, eta=eta, consider_spin=False)
+        g.init_greenFunc(energy=energy, store_errors=False)
+        self.decimated = g.decimate(g.greenFunc, t00, t, td, iterations=15)
     #
     
     def test_initialize(self):
@@ -22,7 +24,15 @@ class TestHamiltonianClass(unittest.TestCase):
         self.assertAlmostEqual( self.decimated[0][0].real, -0.0001924499400464738, None, "wrong", delta=0.0001)
         self.assertAlmostEqual( self.decimated[0][0].imag, -0.5773500767396716, None, "wrong", delta=0.0001)
 
-        # get_density_twoLines()
+        energy = -2.65
+        dens = Green.get_density_smallestZGNR(energy)
+        self.assertAlmostEqual( dens, 0.001592691480946306, None, "error found when using statis method", delta=0.0001)
+
+        g = Green.get_density_smallestZGNR(energy=energy)
+
+
+        # self.assertAlmostEqual( np.allclose(  )  )
+        # # get_density_twoLines()
 
 #
     
