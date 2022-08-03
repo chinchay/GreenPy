@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
-from src import Green
-import src.library as lib
+from GreenPy import Green
+from GreenPy import library as lib
 
 class TestGreenClass(unittest.TestCase):
     def setUp(self) -> None:
