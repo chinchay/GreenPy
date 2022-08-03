@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='GreenPy',
-    version='0.2',
+    version='0.1',
     description='Decimation of the Green function in graphene nanoribbons',
     packages=['GreenPy'],
     zip_safe=False
