@@ -6,6 +6,12 @@ The package implements a class to handle different calculations to obtain the el
 
 Clone the repo: `https://github.com/chinchay/GreenPy.git`
 
+or install it:
+
+```ShellSession
+$ pip install GreenPy
+```
+
 ## What's included
 
 Ready to use methods are available: `get_density_OneLinearChain()` and `get_density_smallestZGNR()` to calculate and display the electronic density of a linear chain of atoms and for the smallest zigzag graphene nanoribbon, respectively.
