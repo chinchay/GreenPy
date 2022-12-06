@@ -1,0 +1,13 @@
+jobs:
+  my_job:
+    name: myJob
+    runs-on: ubuntu-latest
+    container: python:3.10.4-buster
+
+    steps:
+      - name: Install dependencies
+        run: |
+          echo ~ 
+          echo $PWD
+          python -m pip install --upgrade pip wheel
+          pip install -r requirements.txt
